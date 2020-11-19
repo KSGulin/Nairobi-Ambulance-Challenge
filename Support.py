@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 
 
 ##### Data Read & Write ##################################
@@ -11,6 +12,11 @@ def Load_Crash_Data():
 	array = np.delete(df.to_numpy(),0, 1)
 	return array
 
+def Load_Merge_Road():
+	road_surveys = pd.read_csv('Data/Segment_info.csv')
+	road_segment_locs = gpd.read_file('Data/segments_geometry.geojson')
+	segments_merged = pd.merge(road_segment_locs, road_surveys, on='segment_id', how='left')
+	return segments_merged
 
 def Print_Sub_File(locations):
 #	Prints a competition submission file given a 2D matrix of ambulance locations
