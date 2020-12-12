@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from shapely.geometry import Point, LineString
+from sklearn.utils import resample
+from scipy import stats
 
 
 class cell:
@@ -63,7 +65,7 @@ def Merge_Roads_Crashes(segments_merged, crash_locations, crashes, t = .0045):
 			
 	return segments_merged, inds_unmerged
 	
-def Create_Time_Series_Data(segments_merged, weather):
+def Create_Paired_Series(segments_merged, weather):
 	predictive_data = np.zeros([len(weather)*len(segments_merged), 233])
 	crash_labels = np.zeros([len(segments_merged), len(weather)])
 	for i, rrow in segments_merged.iterrows():
@@ -74,6 +76,20 @@ def Create_Time_Series_Data(segments_merged, weather):
 				if rrow[5][k].date() == wrow[0].date():
 					crash_labels[i, j] += rrow[3][k]
 		predictive_data[i*len(weather):(i+1)*len(weather)] = set
+		
+	crash_labels = crash_labels.flatten()
+	return predictive_data, crash_labels
+
+
+def Create_Paired_Series2(segments_merged):
+	predictive_data = np.zeros([8*len(segments_merged), 228])
+	crash_labels = np.zeros([len(segments_merged), 8])
+	for i, rrow in segments_merged.iterrows():
+		for h in range(8):
+			predictive_data[i*8 + h] = np.concatenate(([h],  rrow[6:].to_numpy()), axis = 0)
+		for k, crash in enumerate(rrow[5]):
+			h_ind = int(np.floor(crash.hour/3))
+			crash_labels[i,h_ind] += rrow[3][k]
 		
 	crash_labels = crash_labels.flatten()
 	return predictive_data, crash_labels
@@ -101,7 +117,7 @@ def Create_Grid(crashes, d):
 
 	return grid
 
-def Create_Unmerged_Series(grid, weather):
+def Create_Unpaired_Series(grid, weather):
 	predictive_data = np.zeros([len(grid), 8*len(weather), 7])
 	crash_labels = np.zeros([len(grid), 8*len(weather)])
 	ind =[]
@@ -123,3 +139,26 @@ def Create_Unmerged_Series(grid, weather):
 	#crash_labels = crash_labels.flatten()
 	crash_labels = np.delete(crash_labels, ind, 0)
 	return predictive_data, crash_labels, active_cells
+
+def Upsample(X, Y, r = 1):
+	ind0 = np.argwhere(Y == 0)
+	ind1 = np.argwhere(Y == 1)
+	if len(ind1) > 0:
+		X1_resampled = resample(X[ind1], replace=True, n_samples=int(r*len(ind0)))
+		X = np.concatenate((X[ind0], X1_resampled)).squeeze()
+		Y = np.concatenate((Y[ind0], np.ones((int(r*(len(ind0))), 1)))).squeeze()
+	return X, Y
+
+#def Replace_Nan_Negative(X):
+
+def Replace_Nan_Mode(X):
+	replaced_nans = {}
+	for i in range(X.shape[1]):
+		mode = stats.mode(X[:,i])
+		nans = np.isnan(X[:,i])
+		if np.any(nans):
+			X[nans,i] = mode[0]
+			replaced_nans[i] = nans.astype(int)
+	
+	return X, replaced_nans
+	

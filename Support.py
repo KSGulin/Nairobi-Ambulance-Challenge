@@ -84,4 +84,25 @@ def Competition_Metric(X, Y, time_dep):
 
 
 	return total_dist
+
+
+def Precision_Calc(prediction, Y):
+	P = np.argwhere(prediction == True)
+	if len(P) == 0:
+		return 0
+	return np.sum(prediction[P] == Y[P])/np.sum(prediction[P])
+
+def Upsample(data, labels):
+	combined_data = np.insert(data[1], 0, labels[1], axis=1)
+	df = pd.DataFrame(data=combined_data, columns=['Crash', 'Time of Day', 'Precipitation', 'Relative Humidity', 'Specific Humidity', 'Temperature', 'u Wind', 'v Wind'])
+	df_nc = df[df['Crash']==0]
+	df_c = df[df['Crash']==1]
+	df_c_upsampled = resample(df_c, replace=True, n_samples=len(df_nc))   
+	df_upsampled = pd.concat([df_nc, df_c_upsampled])
+
+	upsampled_data = df_upsampled.to_numpy()
+	labels = upsampled_data[:,0]
+	data = upsampled_data[:,1:]
+
+	return data, labels
 				
